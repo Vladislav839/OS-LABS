@@ -1,0 +1,2 @@
+#define NUMBERLIB_API __declspec(dllexport)
+#define NUMBERLIB_API __declspec(dllimport)
