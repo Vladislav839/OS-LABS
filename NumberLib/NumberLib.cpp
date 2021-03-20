@@ -23,7 +23,7 @@ Number Number::operator+(const Number& num)
 Number Number::operator-(const Number& num)
 {
 	Number res(0.0);
-	res.value = value + num.value;
+	res.value = value - num.value;
 	return res;
 }
 
