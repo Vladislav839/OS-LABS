@@ -4,6 +4,6 @@ g++ main.cpp -lvector -L. -o RUN; mydir=$(pwd); cp libvector.so ~/bin; cd ~; cd 
 ```
 Если нужно собрать библиотеки из исходников можно удалить все файлы кроме .cpp и .h и затем выполнить cледующую команду.
 ```shell
-g++ -c -fPIC NumberLib.cpp; ar rvs libnumber.a NumberLib.o; g++ -c -fPIC VectorLib.cpp; g++ VectorLib.o -shared -o libvector.so --Wl,--whole-archive libnumber.a -Wl,--no-whole-archive
+g++ -c -fPIC NumberLib.cpp; ar rvs libnumber.a NumberLib.o; g++ -c -fPIC VectorLib.cpp; g++ VectorLib.o -shared -o libvector.so -Wl,--whole-archive libnumber.a -Wl,--no-whole-archive
 ```
 После этого запустить main.cpp на исполнение первой командой.
