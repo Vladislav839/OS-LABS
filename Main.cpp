@@ -1,10 +1,10 @@
-﻿#include "buffered_channel.h"
+#include "buffered_channel.h"
 
 #include <iostream>
 #include <random>
 #include <chrono>
 
-BufferedChannel<int32_t> buffered_channel(10);
+BufferedChannel<int> buffered_channel(10);
 const int max_counter = 10;
 int counter = 0;
 bool channel_is_closed = false;
@@ -12,7 +12,7 @@ bool channel_is_closed = false;
 
 void prepare_data() {
 	std::default_random_engine engine(rand() % 10);
-	std::uniform_int_distribution<int32_t> int_distribution(10, 100);
+	std::uniform_int_distribution<int> int_distribution(10, 100);
 	auto value = int_distribution(engine);
 	buffered_channel.Send(value);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
