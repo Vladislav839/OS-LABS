@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include "buffered_channel.h"
 using namespace std::chrono;
 
 std::vector<std::vector<double>> A;
@@ -53,8 +54,24 @@ struct MatrixInfo
 	}
 };
 
+struct Data {
+	int a_block;
+	int b_block;
+	int thread_index;
+	int total_threads;
+	Data() = default;
+	Data(int a_block, int b_block, int thread_index, int total_threads) {
+		this->a_block = a_block;
+		this->b_block = b_block;
+		this->thread_index = thread_index;
+		this->total_threads = total_threads;
+	}
+};
+
+
 std::vector<MatrixInfo> blocks_A;
 std::vector<MatrixInfo> blocks_B;
+BufferedChannel<Data*> *channel;
 
 void PrintBlock(std::vector<MatrixInfo> block) {
 	for (int i = 0; i < block.size(); i++) {
@@ -86,11 +103,15 @@ void SimpleMultiplication(MatrixInfo a_info, MatrixInfo b_info) {
 
 void* ThreadProc(void* lpParametr)
 {
-	int* index = (int*)lpParametr;
-	MatrixInfo A_info = blocks_A[*index];
-	for(int i = 0; i < k; i++) {
-        SimpleMultiplication(A_info, blocks_B[i]);
-    }
+	while (channel->Size() != 0)
+	{
+		std::pair<Data*, bool> data = channel->Recv();
+		if (data.second) {
+			MatrixInfo A_info = blocks_A[data.first->a_block];
+			MatrixInfo B_info = blocks_B[data.first->b_block];
+			SimpleMultiplication(A_info, B_info);
+		}
+	}
 	return 0;
 }
 
@@ -119,16 +140,22 @@ void InitBlocks(int k) {
 void RowToColMultiplication(int k) {
 	InitBlocks(k);
     threads = new pthread_t[k];
+	for (int i = 0; i < k * k; i++) {
+		int a_block = (int)i / k;
+		int b_block = i % k;
+		int thread_index = i;
+		Data* data = new Data(a_block, b_block, thread_index, k);
+		channel->Send(data);
+	}
     for(int i = 0; i < k; i++) {
-        int* a = new int;
-        *a = i;
-        pthread_create(&threads[i], NULL, &ThreadProc, a);
+        pthread_create(&threads[i], NULL, &ThreadProc, NULL);
     }
 }
 
 int main()
 {
 	ReadMatrixes("input.txt");
+	channel = new BufferedChannel<Data*>(k * k);
 	result.resize(A.size(), std::vector<double>(B[0].size()));
 	auto start = high_resolution_clock::now();
 	RowToColMultiplication(k);
@@ -142,5 +169,6 @@ int main()
 		<< duration.count() << " microseconds" << std::endl;
 
 	delete[] threads;
+	delete channel;
 	return 0;
 }
