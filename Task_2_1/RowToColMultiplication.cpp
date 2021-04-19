@@ -165,7 +165,7 @@ int main()
 	std::cout << "Time taken by RowToColMultiplication: "
 		<< duration.count() << " microseconds" << std::endl;
 
-	for (int i = 0; i < k * k; i++) {
+	for (int i = 0; i < k; i++) {
 		CloseHandle(threads[i]);
 	}
 	delete[] threads;
