@@ -1,8 +1,9 @@
-﻿#include <Windows.h>
+#include <Windows.h>
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include "../buffered_channel.h"
 using namespace std::chrono;
 
 std::vector<std::vector<double>> A;
@@ -69,6 +70,8 @@ struct MatrixInfo
 std::vector<MatrixInfo> blocks_A;
 std::vector<MatrixInfo> blocks_B;
 
+BufferedChannel<Data*> *channel;
+
 void PrintBlock(std::vector<MatrixInfo> block) {
 	for (int i = 0; i < block.size(); i++) {
 		std::cout << "start_row: " << block[i].start_row << '\n';
@@ -99,13 +102,15 @@ void SimpleMultiplication(MatrixInfo a_info, MatrixInfo b_info) {
 
 DWORD WINAPI ThreadProc(LPVOID lpParametr)
 {
-	Data* data = (Data*)lpParametr;
-	MatrixInfo A_info = blocks_A[data->a_block];
-	MatrixInfo B_info = blocks_B[data->b_block];
-	SimpleMultiplication(A_info, B_info);
-	// когда один из k потоков закончил свою работу он будит следующий, 
-	// это сделано для того чтобы одновременно работало K потоков
-	ResumeThread(threads[data->thread_index + data->total_threads]);
+	while (channel->Size() != 0)
+	{
+		std::pair<Data*, bool> data = channel->Recv();
+		if (data.second) {
+			MatrixInfo A_info = blocks_A[data.first->a_block];
+			MatrixInfo B_info = blocks_B[data.first->b_block];
+			SimpleMultiplication(A_info, B_info);
+		}
+	}
 	return 0;
 }
 
@@ -133,30 +138,27 @@ void InitBlocks(int k) {
 
 void RowToColMultiplication(int k) {
 	InitBlocks(k);
-	threads = new HANDLE[k * k];
-	// создаем k^2 спящих потоков
+	threads = new HANDLE[k];
 	for (int i = 0; i < k * k; i++) {
 		int a_block = (int)i / k;
 		int b_block = i % k;
 		int thread_index = i;
 		Data* data = new Data(a_block, b_block, thread_index, k);
-		threads[i] = CreateThread(NULL, 0, ThreadProc, (LPVOID)data, CREATE_SUSPENDED, NULL);
+		channel->Send(data);
 	}
-	// запускаем первые k
 	for (int i = 0; i < k; i++) {
-		if (threads[i] != NULL) {
-			ResumeThread(threads[i]);
-		}
+		threads[i] = CreateThread(NULL, NULL, ThreadProc, NULL, NULL, NULL);
 	}
 }
 
 int main()
 {
 	ReadMatrixes("../input.txt");
+	channel = new BufferedChannel<Data*>(k * k);
 	result.resize(A.size(), std::vector<double>(B[0].size()));
 	auto start = high_resolution_clock::now();
 	RowToColMultiplication(k);
-	WaitForMultipleObjects(k * k, threads, true, INFINITE);
+	WaitForMultipleObjects(k, threads, true, INFINITE);
 	auto stop = high_resolution_clock::now();
 	PrintMatrix(result);
 	auto duration = duration_cast<microseconds>(stop - start);
@@ -167,5 +169,6 @@ int main()
 		CloseHandle(threads[i]);
 	}
 	delete[] threads;
+	delete channel;
 	return 0;
 }
