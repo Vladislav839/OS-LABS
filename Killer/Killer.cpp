@@ -49,6 +49,10 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 		pos = str.find(delim, prev);
 		if (pos == std::string::npos) pos = str.length();
 		std::string token = str.substr(prev, pos - prev);
+		token += ".exe";
+		std::for_each(token.begin(), token.end(), [](char& c) {
+			c = ::tolower(c);
+			});
 		if (!token.empty()) tokens.push_back(token);
 		prev = pos + delim.length();
 	} while (pos < str.length() && prev < str.length());
@@ -70,7 +74,7 @@ int main(int argv, char* args[])
 
 	char value[100];
 	GetEnvironmentVariableA("PROC_TO_KILL", value, sizeof(value));
-	std::string arguments_string = "chrome,telegram";
+	std::string arguments_string(value);
 
 	std::vector<std::string> arguments = split(arguments_string, ",");
 
@@ -83,10 +87,12 @@ int main(int argv, char* args[])
 		while (Process32Next(processSnap, &processInfo) == TRUE)
 		{
 			_bstr_t b(processInfo.szExeFile);
-			//std::cout << b << '\t' << processInfo.th32ProcessID << '\n';
 			std::string current_name(b);
+			std::for_each(current_name.begin(), current_name.end(), [](char& c) {
+				c = ::tolower(c);
+				});
 			if (((int)processInfo.th32ProcessID == processId) || 
-				(strcmp(b, processName) == 0) ||
+				(current_name.compare(processName) == 0) ||
 				consists(arguments, current_name))
 			{
 				HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processInfo.th32ProcessID);
